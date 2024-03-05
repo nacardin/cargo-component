@@ -8,7 +8,7 @@ on:
     
 jobs:
   bump_dev_release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'bytecodealliance/cargo-component'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'nacardin/cargo-component'
     name: Create dev release
     runs-on: ubuntu-latest
     permissions:
@@ -17,12 +17,12 @@ jobs:
       - name: Login GH CLI
         run: gh auth login --with-token < <(echo ${{ secrets.GITHUB_TOKEN }})
       - name: Delete old dev release
-        run: gh release delete -R bytecodealliance/cargo-component dev -y || true
+        run: gh release delete -R nacardin/cargo-component dev -y || true
       - name: Create new latest release
-        run: gh release create -R bytecodealliance/cargo-component dev --prerelease --notes "Published artifacts from the latest build"
+        run: gh release create -R nacardin/cargo-component dev --prerelease --notes "Published artifacts from the latest build"
 
   publish_dev_release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'bytecodealliance/cargo-component'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'nacardin/cargo-component'
     name: Publish to dev release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -30,6 +30,9 @@ jobs:
         include:
           - rust-target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+          - rust-target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
           - rust-target: x86_64-apple-darwin
             os: macos-latest
           - rust-target: aarch64-apple-darwin
@@ -46,11 +49,11 @@ jobs:
       - name: Install Rust
         run: rustup update stable --no-self-update && rustup default stable && rustup target add ${{ matrix.rust-target }}
       - run: cargo build --release --target ${{ matrix.rust-target }}
-        env:
-          CARGO_PROFILE_RELEASE_PANIC: abort
-          CARGO_PROFILE_RELEASE_LTO: true
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
-          CARGO_PROFILE_RELEASE_STRIP: debuginfo
+        if: ${{ ! matrix.cross }}
+      - run: cargo install cross
+        if: ${{ matrix.cross }}
+      - run: cross build --release --target ${{ matrix.rust-target }}
+        if: ${{ matrix.cross }}
       - run: mv ./target/${{ matrix.rust-target }}/release/cargo-component.exe ./target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
         if: matrix.os == 'windows-latest'
       - run: mv ./target/${{ matrix.rust-target }}/release/cargo-component ./target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
@@ -58,10 +61,10 @@ jobs:
       - name: Login GH CLI
         shell: bash
         run: gh auth login --with-token < <(echo ${{ secrets.GITHUB_TOKEN }})
-      - run: gh release upload -R bytecodealliance/cargo-component --clobber dev target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
+      - run: gh release upload -R nacardin/cargo-component --clobber dev target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
 
   publish_tagged_release:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'bytecodealliance/cargo-component'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'nacardin/cargo-component'
     name: Publish to tagged release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -69,6 +72,9 @@ jobs:
         include:
           - rust-target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+          - rust-target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
           - rust-target: x86_64-apple-darwin
             os: macos-latest
           - rust-target: aarch64-apple-darwin
@@ -82,11 +88,11 @@ jobs:
       - name: Install Rust
         run: rustup update stable --no-self-update && rustup default stable && rustup target add ${{ matrix.rust-target }}
       - run: cargo build --release --target ${{ matrix.rust-target }}
-        env:
-          CARGO_PROFILE_RELEASE_PANIC: abort
-          CARGO_PROFILE_RELEASE_LTO: true
-          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
-          CARGO_PROFILE_RELEASE_STRIP: debuginfo
+        if: ${{ ! matrix.cross }}
+      - run: cargo install cross
+        if: ${{ matrix.cross }}
+      - run: cross build --release --target ${{ matrix.rust-target }}
+        if: ${{ matrix.cross }}
       - run: mv ./target/${{ matrix.rust-target }}/release/cargo-component.exe ./target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
         if: matrix.os == 'windows-latest'
       - run: mv ./target/${{ matrix.rust-target }}/release/cargo-component ./target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
@@ -94,4 +100,4 @@ jobs:
       - name: Login GH CLI
         shell: bash
         run: gh auth login --with-token < <(echo ${{ secrets.GITHUB_TOKEN }})
-      - run: gh release upload -R bytecodealliance/cargo-component --clobber ${{ github.ref_name }} target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
+      - run: gh release upload -R nacardin/cargo-component --clobber ${{ github.ref_name }} target/${{ matrix.rust-target }}/release/cargo-component-${{ matrix.rust-target }}
